@@ -15,14 +15,24 @@ export const streetEntrances = entranceBays.map(bay => (bay + .5) * streetLength
 const edges = [
     {from: [-56, -25], to: [56, -25], normal: [0, -1], bays: streetBays, use: 'street'},
     {from: [56, -25], to: [56, -9], normal: [1, 0], bays: 3, use: 'streetEnd'},
-    {from: [56, -9], to: [-40, -9], normal: [0, 1], bays: 15, use: 'court'},
-    {from: [-40, -9], to: [-40, 41], normal: [1, 0], bays: 8, use: 'court'},
+    {from: [56, -9], to: [-40, -9], normal: [0, 1], bays: 15, use: 'court', entries: [2, 7, 12]},
+    {from: [-40, -9], to: [-40, 41], normal: [1, 0], bays: 8, use: 'court', entries: [4]},
     {from: [-40, 41], to: [-56, 41], normal: [0, 1], bays: 3, use: 'blindEnd'},
     {from: [-56, 41], to: [-56, -25], normal: [-1, 0], bays: 10, use: 'streetEnd'},
 ];
 
+export const courtEntrances = edges.filter(edge=>edge.entries).flatMap(edge=>
+    edge.entries.map(bay=>{
+        const f=(bay+.265)/edge.bays;
+        return {
+            center:edge.from.map((value,i)=>value+(edge.to[i]-value)*f),
+            normal:edge.normal,
+        };
+    })
+);
+
 export function buildFacade(box, m) {
-    const {brick, sand, pale, granite, graphite, frame, glass, shopGlass, windowMats, light, interior} = m;
+    const {brick, sand, pale, granite, graphite, frame, glass, shopGlass, windowMats, courtGlass, interior, drapery} = m;
     const roofThickness = .21;
     // Roofs and recessed opaque cores keep the skyline and true reveals continuous.
     for (const [x, z, width, depth] of [[0, -17, 112, 16], [-48, 16, 16, 50]]) {
@@ -67,10 +77,23 @@ export function buildFacade(box, m) {
 
         function housingWindow(u, width, sill, head, face, style, divisions = 2) {
             const glazing = face - (face > .6 ? .286 : .208);
-            const pane = windowMats[style % windowMats.length];
+            const windows = edge.use==='court' ? courtGlass : windowMats;
+            const pane = windows[style % windows.length];
             const h = head - sill;
             const y = (sill + head) / 2;
-            part(interior, u, y, -.389, width - .018, h - .022, .065);
+            const back = Math.max(-.396,glazing-.42);
+            part(interior, u, y, back, width - .018, h - .022, .040);
+            if (style % 7<3) {
+                const side=style % 2 ? 1 : -1;
+                const reach=width*(style%3===0 ? .56 : .28);
+                const material=drapery[style%drapery.length];
+                for(let fold=0;fold<7;fold++){
+                    const t=(fold+.5)/7;
+                    const off=side*(width/2-.061-t*reach);
+                    part(material,u+off,y,glazing-.115+Math.sin(fold*2.33)*.024,
+                        reach/7+.004,h-.107,.030);
+                }
+            }
             part(pane, u, y, glazing - .025, width - .101, h - .115, .025);
             for (const side of [-1, 1]) {
                 part(frame, u + side * (width / 2 - .042), y, glazing, .064, h - .025, .081);
@@ -152,8 +175,27 @@ export function buildFacade(box, m) {
                         const head = 2.88;
                         if (endWall) facing(granite, start, end, bottom, top, baseFace);
                         else {
-                            facingAround(granite, start, end, sill, head, bottom, top, pair, baseFace);
-                            for (const p of pair) housingWindow(p.u, p.width, sill, head, baseFace, bay + 2);
+                            if (court && edge.entries.includes(bay)) {
+                                const threshold=.15;
+                                facingAround(granite,start,end,threshold,head,bottom,top,pair,baseFace);
+                                const [door,window]=pair;
+                                facing(granite,window.u-window.width/2,window.u+window.width/2,
+                                    threshold,sill,baseFace);
+                                housingWindow(window.u,window.width,sill,head,baseFace,bay+2);
+                                const clear=door.width-.08;
+                                const y=(head+threshold)/2;
+                                part(interior,door.u,y,-.184,clear,head-threshold,.059);
+                                part(courtGlass[2],door.u,y,.285,clear-.12,head-threshold-.15,.025);
+                                for(const side of [-1,1]){
+                                    part(frame,door.u+side*clear/2,y,.321,.077,head-threshold,.088);
+                                    part(frame,door.u,y+side*(head-threshold)/2,.321,clear,.067,.088);
+                                }
+                                part(frame,door.u,y,.337,.064,head-threshold-.065,.077);
+                                part(graphite,door.u-.156,threshold+1.03,.407,.045,.38,.045);
+                            } else {
+                                facingAround(granite,start,end,sill,head,bottom,top,pair,baseFace);
+                                for (const p of pair) housingWindow(p.u,p.width,sill,head,baseFace,bay+2);
+                            }
                         }
                     }
                     part(graphite, u, groundHeight - .035, baseFace + .036, bayWidth, .09, .20);

@@ -6,12 +6,33 @@ import {SSAOPass} from 'three/addons/postprocessing/SSAOPass.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {buildFacade, streetEntrances} from './premium-facade.js?v=facade-20261126';
-const scene=new T.Scene();scene.background=new T.Color('#e9e9e0');scene.fog=new T.Fog('#e9e9e0',400,1000);
-const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;document.querySelector('#scene').appendChild(renderer.domElement);
-const camera=new T.PerspectiveCamera(42,innerWidth/innerHeight,.1,1400);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.07;controls.maxPolarAngle=1.555;controls.minDistance=2.5;controls.maxDistance=900;controls.target.set(0,12,-1);
-const pm=new T.PMREMGenerator(renderer);scene.environment=pm.fromScene(new RoomEnvironment(),.04).texture;scene.environmentIntensity=.65;pm.dispose();
-const sun=new T.DirectionalLight('#fff0d7',3.0);sun.position.set(-45,85,-55);sun.castShadow=true;sun.shadow.mapSize.set(4096,4096);Object.assign(sun.shadow.camera,{left:-105,right:105,top:100,bottom:-100,near:1,far:260});sun.shadow.bias=-.00025;sun.shadow.normalBias=.07;sun.target.position.set(0,0,0);scene.add(sun,sun.target);const sky=new T.HemisphereLight('#e5edff','#7d7763',1.5);scene.add(sky);const facadeFill=new T.DirectionalLight('#ecf3ff',.65);facadeFill.position.set(25,60,-85);scene.add(facadeFill);
+import {buildFacade, streetEntrances, courtEntrances} from './premium-facade.js?v=daylight-20261126';
+import {loadSky, loadReflectionAtlas, configureWindowReflections} from './premium-lighting.js?v=daylight-20261126';
+import {frameStreet, frameEye, frameOverview} from './premium-views.js?v=daylight-20261126';
+const scene=new T.Scene();scene.background=new T.Color('#d5e0e8');scene.fog=new T.Fog('#c2d0dc',265,850);
+const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;document.querySelector('#scene').appendChild(renderer.domElement);
+const camera=new T.PerspectiveCamera(42,innerWidth/innerHeight,.1,1400);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.07;controls.maxPolarAngle=Math.PI/2;controls.minDistance=2.5;controls.maxDistance=900;controls.target.set(0,12,-1);
+const pm=new T.PMREMGenerator(renderer);
+const studio=new RoomEnvironment();
+const ambient=pm.fromScene(studio,.055);
+scene.environment=ambient.texture;
+scene.environmentIntensity=.37;
+studio.dispose();
+pm.dispose();
+const sun=new T.DirectionalLight('#fff3e2',2.65);
+sun.position.set(-62,82,-43);
+sun.castShadow=true;
+sun.shadow.mapSize.set(4096,4096);
+Object.assign(sun.shadow.camera,{left:-91,right:91,top:84,bottom:-89,near:1,far:256});
+sun.shadow.bias=-.00017;
+sun.shadow.normalBias=.042;
+sun.shadow.radius=2.25;
+scene.add(sun,sun.target);
+const skyFill=new T.HemisphereLight('#dae9ff','#8a8371',.91);
+const courtFill=new T.DirectionalLight('#e6eeff',.32);
+courtFill.position.set(48,26,72);
+scene.add(skyFill,courtFill);
+const lightAssets=Promise.allSettled([loadSky(scene),loadReflectionAtlas()]);
 let seed=14;function rnd(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}const mats={};
 function material(name,color,roughness=.8,metalness=0){return mats[name]=new T.MeshStandardMaterial({color,roughness,metalness})}
 function texture(kind,base,palette=[]){const c=document.createElement('canvas');c.width=c.height=512;const q=c.getContext('2d');q.fillStyle=base;q.fillRect(0,0,512,512);
@@ -32,6 +53,12 @@ function texture(kind,base,palette=[]){const c=document.createElement('canvas');
         q.fillRect(rnd()*512,rnd()*512,.65+rnd()*1.8,.55+rnd()*1.2);
     }
  }
+ if(kind==='asphalt'){
+     for(let i=0;i<31000;i++){
+         q.fillStyle=rnd()<.5?'#a9aaa530':'#24242125';
+         q.fillRect(rnd()*512,rnd()*512,.7+rnd()*2.3,.6+rnd()*1.6);
+     }
+ }
  if(kind==='stone'){for(let i=0;i<25000;i++){q.fillStyle=rnd()<.5?'#ffffff18':'#00000015';q.fillRect(rnd()*512,rnd()*512,1+rnd()*3,1+rnd()*3)}q.strokeStyle='#ffffff15';q.lineWidth=2;for(let y=0;y<512;y+=128){q.strokeRect(0,y,256,128);q.strokeRect(256,y,256,128)}}
  if(kind==='paving'){q.fillStyle='#b8b6ab';q.fillRect(0,0,512,512);for(let r=0;r<16;r++)for(let col=-1;col<9;col++){let n=157+Math.floor(rnd()*40);q.fillStyle=`rgb(${n+7},${n+4},${n})`;q.fillRect(col*64+(r%2)*32+1,r*32+1,62,30)}}
  const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.colorSpace=T.SRGBColorSpace;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t}
@@ -40,14 +67,34 @@ function masonry(name, joint, colors, roughness=.89){
     m.map=texture('brick',joint,colors);
     return m;
 }
+const masonryRelief=document.createElement('canvas');
+masonryRelief.width=masonryRelief.height=512;
+const heightCanvas=masonryRelief.getContext('2d');
+heightCanvas.fillStyle='#242424';
+heightCanvas.fillRect(0,0,512,512);
+for(let row=0;row<32;row++){
+    for(let col=-1;col<8;col++){
+        const x=col*64+(row%2)*32, y=row*16;
+        const bevel=heightCanvas.createLinearGradient(x,y,x,y+16);
+        bevel.addColorStop(0,'#515151');
+        bevel.addColorStop(.16,'#a3a3a3');
+        bevel.addColorStop(.83,'#a3a3a3');
+        bevel.addColorStop(1,'#606060');
+        heightCanvas.fillStyle=bevel;
+        heightCanvas.fillRect(x+1.25,y+1.15,61.5,13.7);
+    }
+}
+const masonryHeight=new T.CanvasTexture(masonryRelief);
+masonryHeight.wrapS=masonryHeight.wrapT=T.RepeatWrapping;
+masonryHeight.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
 const brick=masonry('FiredUmberBrick','#75645d',['#68493e','#785244','#895f4f','#5f463e','#986950','#6c4b40','#765446','#705147']);
 const sand=masonry('SandBrick','#a88b68',['#b69564','#c5a374','#bea071','#cba773','#bf9d66','#cfad7c','#bb9b70']);
 const pale=masonry('PaleCrownBrick','#a99b8a',['#c8bba7','#d2c5b3','#c3b29d','#d6c8b5','#d0bfaa','#c4b6a5']);
 const darkBase=masonry('GraphiteBrick','#4c4e50',['#44494d','#515359','#3b4046','#4b5056','#444951','#53565a'],.83);
 const granite=material('granite','#e1e1dd');granite.map=texture('stone','#727779');
 const interior=material('RecessBacking','#282728',.94);
-const graphite=material('graphite','#30383c',.58,.35);const frame=material('frame','#1b2429',.42,.55);const glass=new T.MeshPhysicalMaterial({color:'#647e8b',roughness:.18,metalness:.12,clearcoat:.65,clearcoatRoughness:.12});glass.envMapIntensity=.55;const warmGlass=material('litWindows','#a18d62',.36,.2);warmGlass.emissive=new T.Color('#ffd69a');warmGlass.emissiveIntensity=.02;const curtain=material('curtain','#b6b1a2');const timber=material('timber','#97704b',.72);const pavement=material('paving','#d2cbbf');pavement.map=texture('paving');const road=material('road','#62676b');road.map=texture('stone','#64696b');const white=material('white','#e6e1d5');const grass=material('grass','#667446');const earth=material('earth','#4b4734');const leafM=[material('leaf0','#486438'),material('leaf1','#617c3e'),material('leaf2','#79914a'),material('leaf3','#8c9b58')];const flower=material('flower','#e4e4bd');const blue=material('play','#728994');const light=material('light','#fff6d7',.3);light.emissive=new T.Color('#ffe1a0');light.emissiveIntensity=.4;const bark=material('bark','#62503c');
-function worldTexture(mat,scale,vertical=false,bump=0){
+const graphite=material('graphite','#30383c',.58,.35);const frame=material('frame','#1b2429',.42,.55);const glass=new T.MeshPhysicalMaterial({color:'#647e8b',roughness:.18,metalness:.12,clearcoat:.65,clearcoatRoughness:.12});glass.envMapIntensity=.55;const warmGlass=material('litWindows','#a18d62',.36,.2);warmGlass.emissive=new T.Color('#ffd69a');warmGlass.emissiveIntensity=.02;const curtain=material('curtain','#b6b1a2');const timber=material('timber','#97704b',.72);const pavement=material('paving','#d2cbbf');pavement.map=texture('paving');const road=material('road','#62676b');road.map=texture('asphalt','#6a6d6e');const white=material('white','#e6e1d5');const grass=material('grass','#667446');const earth=material('earth','#4b4734');const leafM=[material('leaf0','#486438'),material('leaf1','#617c3e'),material('leaf2','#79914a'),material('leaf3','#8c9b58')];const flower=material('flower','#e4e4bd');const blue=material('play','#728994');const light=material('light','#fff6d7',.3);light.emissive=new T.Color('#ffe1a0');light.emissiveIntensity=.4;const bark=material('bark','#62503c');
+function worldTexture(mat,scale,vertical=false,bump=0,heightMap=null){
  mat.onBeforeCompile=shader=>{
  shader.vertexShader='varying vec3 vTextureWorld;\n'+shader.vertexShader;
  shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>',`#include <worldpos_vertex>
@@ -57,39 +104,52 @@ function worldTexture(mat,scale,vertical=false,bump=0){
  #endif
  vTextureWorld=(modelMatrix*texturePosition).xyz;`);
  shader.fragmentShader='varying vec3 vTextureWorld;\n'+shader.fragmentShader;
+ if(heightMap){
+    shader.uniforms.detailHeight={value:heightMap};
+    shader.fragmentShader='uniform sampler2D detailHeight;\n'+shader.fragmentShader;
+ }
  shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP
  vec3 worldN=abs(normalize(cross(dFdx(vTextureWorld),dFdy(vTextureWorld))));
  vec2 uvWorld=${vertical?'(worldN.z>worldN.x?vTextureWorld.xy:vTextureWorld.zy)':'vTextureWorld.xz'}*${scale};
  vec4 sampledDiffuseColor=texture2D(map,uvWorld);
  diffuseColor*=sampledDiffuseColor;
+ ${heightMap?'diffuseColor.rgb *= .95 + .050*sin(vTextureWorld.x*.83+vTextureWorld.y*.71+vTextureWorld.z*.53) + .028*cos(vTextureWorld.y*1.95-vTextureWorld.z*.67);':''}
  #endif`);
  if(bump>0){
  shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
  vec3 wn=abs(normalize(cross(dFdx(vTextureWorld),dFdy(vTextureWorld))));
  vec2 uvDetail=${vertical?'(wn.z>wn.x?vTextureWorld.xy:vTextureWorld.zy)':'vTextureWorld.xz'}*${scale};
- float relief=dot(texture2D(map,uvDetail).rgb,vec3(.333));
+ float relief=dot(texture2D(${heightMap?"detailHeight":"map"},uvDetail).rgb,vec3(.333));
  vec3 px=dFdx(-vViewPosition),py=dFdy(-vViewPosition);
  vec3 ra=cross(py,normal),rb=cross(normal,px);
  float det=dot(px,ra);
  normal=normalize(normal-sign(det)*(dFdx(relief)*ra+dFdy(relief)*rb)*${bump.toFixed(4)});
  `);
  }
- };mat.customProgramCacheKey=()=>String(scale)+vertical+bump;
+ };mat.customProgramCacheKey=()=>String(scale)+vertical+bump+Boolean(heightMap);
 }
-for(const m of [brick,sand,pale,darkBase]) worldTexture(m,.48,true,.055);
+for(const m of [brick,sand,pale,darkBase]) worldTexture(m,.48,true,.011,masonryHeight);
 worldTexture(granite,.5,true,.035);
-worldTexture(pavement,.30,false,.035);
-worldTexture(road,.22);
-const windowMats=[];
-for(let variant=0;variant<8;variant++){
- const c=document.createElement('canvas');c.width=128;c.height=256;const q=c.getContext('2d');
- const bg=q.createLinearGradient(0,0,128,256);bg.addColorStop(0,variant%3?'#b6cbd3':'#c8c7ba');bg.addColorStop(.49,'#788e95');bg.addColorStop(1,'#455d63');q.fillStyle=bg;q.fillRect(0,0,128,256);
- q.fillStyle='#ded5c457';for(let i=0;i<9;i++)q.fillRect((variant%2?0:103)+i*2,0,1.2,256);
- q.fillStyle='#18292c33';q.fillRect(8,190,112,66);q.fillStyle='#f3dfb433';q.fillRect(20,165,40,60);
- const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;t.anisotropy=8;
- windowMats.push(new T.MeshPhysicalMaterial({map:t,color:'#91a5ae',roughness:.18+variant*.012,metalness:.12,clearcoat:.65,clearcoatRoughness:.12,envMapIntensity:.55}));
-}
-const shopGlass=new T.MeshPhysicalMaterial({map:windowMats[0].map,color:'#8a8372',roughness:.23,metalness:.12,clearcoat:.47,envMapIntensity:.53});
+worldTexture(pavement,.40,false,.011);
+worldTexture(road,.24,false,.007);
+const paneTints=['#52636b','#637176','#536168','#77786d','#617379','#525e66','#606d70','#65747b'];
+const windowMats=paneTints.map((color,i)=>new T.MeshPhysicalMaterial({
+    color,roughness:.19+(i%4)*.039,metalness:.28,
+    clearcoat:.65,clearcoatRoughness:.13,envMapIntensity:.83,
+    transparent:true,opacity:.69+(i%5)*.048,
+}));
+const courtGlass=windowMats.map((mat,i)=>{
+    const copy=mat.clone();
+    copy.envMapIntensity=.94+(i%3)*.05;
+    return copy;
+});
+const shopGlass=new T.MeshPhysicalMaterial({
+    color:'#675e50',roughness:.25,metalness:.30,clearcoat:.55,
+    envMapIntensity:.87,transparent:true,opacity:.72,
+});
+const drapery=['#d2c8b4','#a8a49a','#dedacf'].map((color,i)=>material('Drapery'+i,color,.92));
+const streetReflectionMats=[...windowMats,glass,shopGlass];
+const reflectiveMats=new Set([...streetReflectionMats,...courtGlass]);
 const pools=new Map(),boxGeo=new T.BoxGeometry(1,1,1),cylGeo=new T.CylinderGeometry(1,1,1,12),sphereGeo=new T.SphereGeometry(1,16,10);const matrix=new T.Matrix4(),quat=new T.Quaternion();let objectCount=0;
 const leafGeo=new T.BufferGeometry();
 leafGeo.setAttribute('position',new T.Float32BufferAttribute([0,0,-1,-.42,.08,-.40,.42,.08,-.4,-.48,.13,.25,.48,.13,.25,0,0,1,0,.18,0],3));
@@ -109,10 +169,33 @@ function ellipse(mat,x,z,rx,rz,y=.12,depth=.1){const pts=[];for(let i=0;i<64;i++
 // Site plinth and two connected residential wings, reconstructed from reference images.
 box(white,0,-.8,0,139,1.6,135);box(grass,0,-.04,0,135,.12,131);box(pavement,0,.02,-31,120,.16,12);box(road,0,.02,-49,132,.13,15);box(road,0,.02,-62,132,.13,10);box(pavement,-62,.03,-3,9,.15,108);box(road,62,.02,5,8,.12,113);
 box(pavement,3,.04,16,118,.12,84);
-buildFacade(box,{brick,sand,pale,granite:darkBase,graphite,frame,glass,shopGlass,windowMats,interior});
+const terrain=material('SurroundingTerrain','#8e9582',.98);
+const ground=new T.Mesh(new T.PlaneGeometry(1200,1200),terrain);
+ground.rotation.x=-Math.PI/2;
+ground.position.y=-.026;
+ground.receiveShadow=true;
+scene.add(ground);
+// The asphalt extends from the modelled street to meet the street-level view.
+box(road,0,-.007,-68.45,246,.018,6.25);
+for(const x of [-99,99]) box(road,x,-.006,-49,67,.023,15);
+for(let x=-61;x<61;x+=1.25){
+    box(granite,x,.139,-41.625,1.229,.144,.183);
+}
+for(let x=-54;x<56;x+=10.9){
+    box(graphite,x,.090,-41.87,.48,.016,.29);
+    for(let n=0;n<8;n++)box(granite,x-.192+n*.055,.104,-41.87,.018,.009,.248);
+}
+buildFacade(box,{brick,sand,pale,granite:darkBase,graphite,frame,glass,shopGlass,windowMats,courtGlass,interior,drapery});
 // Entrances, podiums and ramps on the street side.
 for(const x of streetEntrances){box(granite,x,.56,-27.73,5.66,1,6.25);for(let i=0;i<5;i++)box(granite,x,.10+i*.10,-32.6+i*.46,5.66,.20+i*.20,.48);
  box(graphite,x,3.79,-25.85,4.48,.18,1.62);
+ // Finished stone nosings, portal returns and the metal drip edge.
+ for(let i=0;i<5;i++)box(granite,x,.20+i*.20,-32.83+i*.46,5.67,.035,.039);
+ for(const offset of [-2.78,2.78]){
+     box(granite,x+offset,.296,-28.01,.097,.411,5.50);
+     box(graphite,x+offset,3.712,-25.75,.045,.115,.988);
+ }
+ box(graphite,x,3.795,-26.644,4.46,.079,.036);
  for(let lx of [-1.7,0,1.7])ball(light,x+lx,3.72,-26.1,.10,.045,.10);
  // Lateral accessible approach.
  const ramp=new T.Mesh(boxGeo,granite);
@@ -180,8 +263,49 @@ function car(x,z,a=0,col=0){
 for(let i of [0,3,6,9,14,18,23,28,34,39])car(-59+i*3.05,-61.8,0,i%3);car(4,-47.2,Math.PI/2,1);car(41,-51.4,-Math.PI/2,0);
 // Enclosed landscaped courtyard with curving paths, timber decks and blue play islands.
 ellipse(grass,3,17,37,20,.14,.05);
-function curvePath(points,width,mat,y=.2){const curve=new T.CatmullRomCurve3(points.map(([x,z])=>new T.Vector3(x,y,z)));const pts=curve.getPoints(160);const v=[],idx=[];for(let i=0;i<pts.length;i++){const tangent=curve.getTangent(i/(pts.length-1)),n=new T.Vector3(-tangent.z,0,tangent.x).normalize().multiplyScalar(width/2);for(let s of [-1,1])v.push(pts[i].x+n.x*s,y,pts[i].z+n.z*s);if(i<pts.length-1){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2)}}const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(v,3));geo.setIndex(idx);geo.computeVertexNormals();const m=new T.Mesh(geo,mat);m.receiveShadow=true;scene.add(m)}
-curvePath([[-36,0],[-20,2],[-2,9],[14,8],[34,13],[42,29]],3.8,pavement);curvePath([[-35,34],[-20,30],[-13,19],[-3,18],[13,27],[32,30],[42,37]],3,pavement);
+function curvePath(points,width,mat,y=.2,border=true){
+    const curve=new T.CatmullRomCurve3(points.map(([x,z])=>new T.Vector3(x,y,z)));
+    const samples=Math.max(22,Math.ceil(curve.getLength()*2.4));
+    const pts=curve.getSpacedPoints(samples);
+    const vertices=[],indices=[],sides=[[],[]];
+    for(let i=0;i<pts.length;i++){
+        const t=curve.getTangentAt(i/samples);
+        const normal=new T.Vector3(-t.z,0,t.x).normalize().multiplyScalar(width/2);
+        for(const [j,sign] of [-1,1].entries()){
+            const x=pts[i].x+normal.x*sign,z=pts[i].z+normal.z*sign;
+            vertices.push(x,y,z);
+            sides[j].push([x,z]);
+        }
+        if(i<samples){
+            const k=i*2;
+            indices.push(k,k+1,k+2,k+1,k+3,k+2);
+        }
+    }
+    const geo=new T.BufferGeometry();
+    geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const surface=new T.Mesh(geo,mat);
+    surface.receiveShadow=true;
+    scene.add(surface);
+    if(border){
+        for(const row of sides){
+            for(let i=1;i<row.length;i++){
+                const [x,z]=row[i-1],[u,v]=row[i];
+                box(granite,(x+u)/2,y+.011,(z+v)/2,Math.hypot(u-x,v-z),.044,.117,-Math.atan2(v-z,u-x));
+            }
+        }
+    }
+}
+curvePath([[-36,0],[-20,2],[-2,9],[14,8],[34,13],[42,29]],3.8,pavement);
+curvePath([[-35,34],[-20,30],[-13,19],[-3,18],[13,27],[32,30],[42,37]],3,pavement);
+const courtEnds=[[39,16],[10,8],[-24,2],[-30,23]];
+for(const [i,{center:[x,z],normal:[nx,nz]}] of courtEntrances.entries()){
+    const start=[x+nx*.53,z+nz*.53];
+    const end=courtEnds[i];
+    curvePath([start,[x+nx*2.35,z+nz*2.35],end],1.82,pavement,.202);
+    box(granite,x+nx*.83,.129,z+nz*.83,nx?.69:2.05,.147,nz?.69:2.05);
+}
 function deck(x,z,rx,rz){ellipse(timber,x,z,rx,rz,.22,.12);for(let xx=x-rx;xx<x+rx;xx+=.22){const dd=rz*Math.sqrt(Math.max(0,1-((xx-x)/rx)**2));box(timber,xx,.37,z,.18,.06,dd*2)}}
 for(const [x,z,rx,rz] of [[-20,14,9,7],[25,21,7,5],[1,33,8,4.5]]){deck(x,z,rx+1.3,rz+1.1);ellipse(blue,x,z,rx,rz,.41,.08)}
 // Playground: timber climbing frame, rope ladder, swings and sand tray.
@@ -218,32 +342,141 @@ for(let x=-34;x<43;x+=1.7)if(x%5>1)grasses(x,39.8,.5,.75);
 // Linear boardwalk connects lounge areas, with individual timber boards.
 for(let x=-11;x<20;x+=.18)box(timber,x,.26,21,.165,.075,2.2);
 for(const [x,z] of [[-4,21],[13,21]]){bench(x,z);cyl(graphite,x+2,.5,z,.12,.8);}
-// Flush instance pools: repeated windows, plants and paving share geometry efficiently.
-for(const {geo,mat,items} of pools.values()){const mesh=new T.InstancedMesh(geo,mat,items.length);items.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=mat!==glass&&mat!==warmGlass;mesh.receiveShadow=true;mesh.computeBoundingSphere();scene.add(mesh)}
-
-// Fixed natural warm daylight. No visible controls or text overlays.
-const envRT=new T.WebGLCubeRenderTarget(256,{type:T.HalfFloatType});const envCamera=new T.CubeCamera(.5,500,envRT);envCamera.position.set(7,19,-34);scene.add(envCamera);
-// The building, site and lighting are static. Reuse the directional shadow map.
+// Instanced windows, paving and vegetation share geometry. Glass leaves the shadow map clear.
+for(const {geo,mat,items} of pools.values()){
+    const mesh=new T.InstancedMesh(geo,mat,items.length);
+    items.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));
+    mesh.castShadow=!reflectiveMats.has(mat)&&mat!==warmGlass;
+    mesh.receiveShadow=true;
+    mesh.computeBoundingSphere();
+    scene.add(mesh);
+}
 renderer.shadowMap.autoUpdate=false;
 renderer.shadowMap.needsUpdate=true;
-envCamera.update(renderer,scene);
-for(const m of [glass,shopGlass]){m.envMap=envRT.texture;m.needsUpdate=true;}for(const m of windowMats){m.envMap=envRT.texture;m.needsUpdate=true;}
-const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const ao=new SSAOPass(scene,camera,innerWidth,innerHeight,12);ao.kernelRadius=5;ao.minDistance=.0005;ao.maxDistance=.035;composer.addPass(ao);composer.addPass(new OutputPass());
-const target=new T.Vector3(0,13,-5);let walk=false,yaw=0,pitch=0,gesture=null,dirty=true;const canvas=renderer.domElement;
-function overviewPos(){const fit=Math.max(141/camera.aspect,133)*.5/Math.tan(T.MathUtils.degToRad(21))*1.15;return target.clone().add(new T.Vector3(.72,.55,-1.17).normalize().multiplyScalar(fit));}
-function overview(){walk=false;controls.enabled=true;camera.fov=42;camera.near=.1;camera.updateProjectionMatrix();camera.position.copy(overviewPos());controls.target.copy(target);controls.update();dirty=true;}
+const [skyAsset,reflectionAsset]=await lightAssets;
+configureWindowReflections(streetReflectionMats,courtGlass,
+    reflectionAsset.status==='fulfilled'?reflectionAsset.value:null,
+    skyAsset.status==='fulfilled'?skyAsset.value:null);
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const ao=new SSAOPass(scene,camera,innerWidth,innerHeight,12);
+ao.kernelRadius=4;
+ao.minDistance=.0005;
+ao.maxDistance=.032;
+composer.addPass(ao);
+composer.addPass(new OutputPass());
+
+const target=new T.Vector3();
+const canvas=renderer.domElement;
+const navigation=document.querySelector('.views');
+const buttons=[...navigation.querySelectorAll('button')];
+let activeView='street',walk=false,yaw=0,pitch=0,gesture=null,dirty=true;
+
+function selectView(view){
+    activeView=view;
+    walk=false;
+    controls.enabled=true;
+    const damping=controls.enableDamping;
+    controls.enableDamping=false;
+    controls.update();
+    camera.near=.1;
+    camera.clearViewOffset();
+    if(view==='overview')frameOverview(camera,target);
+    else if(view==='street')frameStreet(camera,target,innerWidth,innerHeight);
+    else frameEye(camera,target,view,streetEntrances[3],innerWidth,innerHeight);
+    controls.target.copy(target);
+    controls.update();
+    controls.enableDamping=damping;
+    camera.updateMatrixWorld(true);
+    for(const button of buttons){
+        button.setAttribute('aria-pressed',String(button.dataset.view===view));
+    }
+    dirty=true;
+}
+function overview(){selectView('overview');}
+
+for(const button of buttons){
+    button.addEventListener('click',()=>selectView(button.dataset.view));
+}
+
 const raycaster=new T.Raycaster();
-function enterAt(x,z){walk=true;controls.enabled=false;camera.position.set(x,1.75,z);camera.fov=65;camera.near=.05;camera.updateProjectionMatrix();yaw=z< -25?1.85:.25;pitch=.10;look();}
-function look(){camera.quaternion.setFromEuler(new T.Euler(pitch,yaw,0,'YXZ'));dirty=true;}
-// Double-click/tap unobstructed site surfaces to inspect at eye level. Escape returns.
-canvas.addEventListener('dblclick',e=>{if(walk){overview();return;}const b=canvas.getBoundingClientRect();raycaster.setFromCamera(new T.Vector2((e.clientX-b.left)/b.width*2-1,-(e.clientY-b.top)/b.height*2+1),camera);const hit=raycaster.intersectObjects(scene.children,true).find(h=>h.object!==envCamera);if(hit&&hit.point.y<1.4)enterAt(hit.point.x,hit.point.z);});
-canvas.addEventListener('pointerdown',e=>{if(walk){gesture={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);}});
-canvas.addEventListener('pointermove',e=>{if(!walk||!gesture)return;yaw-=(e.clientX-gesture.x)*.0035;pitch=T.MathUtils.clamp(pitch-(e.clientY-gesture.y)*.0035,-1.48,1.48);gesture={x:e.clientX,y:e.clientY};look();});for(const evt of ['pointerup','pointercancel'])canvas.addEventListener(evt,()=>gesture=null);
+function enterAt(x,z){
+    walk=true;
+    controls.enabled=false;
+    camera.clearViewOffset();
+    camera.position.set(x,1.75,z);
+    camera.fov=65;
+    camera.near=.05;
+    camera.updateProjectionMatrix();
+    yaw=z<-25?Math.PI:.25;
+    pitch=.12;
+    for(const button of buttons)button.setAttribute('aria-pressed','false');
+    look();
+}
+function look(){
+    camera.quaternion.setFromEuler(new T.Euler(pitch,yaw,0,'YXZ'));
+    dirty=true;
+}
+function stepIntoScene(e){
+    if(walk){overview();return;}
+    const b=canvas.getBoundingClientRect();
+    camera.updateMatrixWorld(true);
+    raycaster.setFromCamera(new T.Vector2((e.clientX-b.left)/b.width*2-1,-(e.clientY-b.top)/b.height*2+1),camera);
+    const hit=raycaster.intersectObjects(scene.children,true)[0];
+    if(hit&&hit.point.y<1.4&&Math.abs(hit.point.x)<66&&hit.point.z>-67&&hit.point.z<64){
+        enterAt(hit.point.x,hit.point.z);
+    }
+}
+// The mobile handler recognises taps that stay close together without interfering with orbit and pinch.
+canvas.addEventListener('dblclick',event=>{if(!event.sourceCapabilities?.firesTouchEvents)stepIntoScene(event);});
+let touchStart=null;
+let previousTap=null;
+canvas.addEventListener('pointerdown',event=>{
+    if(event.pointerType==='touch'){
+        touchStart=touchStart?{...touchStart,moved:true}:{id:event.pointerId,x:event.clientX,y:event.clientY,moved:false};
+    }
+    if(walk){
+        gesture={id:event.pointerId,x:event.clientX,y:event.clientY};
+        canvas.setPointerCapture(event.pointerId);
+    }
+});
+canvas.addEventListener('pointermove',event=>{
+    if(touchStart?.id===event.pointerId&&Math.hypot(touchStart.x-event.clientX,touchStart.y-event.clientY)>10)touchStart.moved=true;
+    if(!walk||gesture?.id!==event.pointerId)return;
+    yaw-=(event.clientX-gesture.x)*.0035;
+    pitch=T.MathUtils.clamp(pitch-(event.clientY-gesture.y)*.0035,-1.48,1.48);
+    gesture={id:event.pointerId,x:event.clientX,y:event.clientY};
+    look();
+});
+canvas.addEventListener('pointerup',event=>{
+    if(touchStart?.id===event.pointerId){
+        if(!touchStart.moved){
+            const now=performance.now();
+            if(previousTap&&now-previousTap.time<325&&Math.hypot(event.clientX-previousTap.x,event.clientY-previousTap.y)<21){
+                stepIntoScene(event);
+                previousTap=null;
+            }else previousTap={x:event.clientX,y:event.clientY,time:now};
+        }else previousTap=null;
+        touchStart=null;
+    }
+    if(gesture?.id===event.pointerId)gesture=null;
+});
+canvas.addEventListener('pointercancel',()=>{gesture=null;touchStart=null;previousTap=null;});
 canvas.addEventListener('wheel',()=>{if(walk)overview();},{passive:true});
-addEventListener('keydown',e=>{if(e.key==='Escape')overview();});
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);if(!walk)overview();dirty=true;});
+addEventListener('keydown',event=>{if(event.key==='Escape')overview();});
+addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+    composer.setSize(innerWidth,innerHeight);
+    if(!walk)selectView(activeView);
+    dirty=true;
+});
 controls.addEventListener('change',()=>{dirty=true;});
-overview();window.premiumReady=true;
+selectView('street');
+navigation.hidden=false;
+document.querySelector('.loading').hidden=true;
+window.premiumReady=true;
 let last=0;
 function animate(time){
     requestAnimationFrame(animate);
