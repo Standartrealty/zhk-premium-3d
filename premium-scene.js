@@ -6,9 +6,10 @@ import {SSAOPass} from 'three/addons/postprocessing/SSAOPass.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {buildFacade, streetEntrances, courtEntrances} from './premium-facade.js?v=daylight-20261126';
-import {loadSky, loadReflectionAtlas, configureWindowReflections} from './premium-lighting.js?v=daylight-20261126';
-import {frameStreet, frameEye, frameOverview} from './premium-views.js?v=daylight-20261126';
+import {buildFacade, streetEntrances, courtEntrances} from './premium-facade.js?v=promenade';
+import {loadSky, loadReflectionAtlas, configureWindowReflections} from './premium-lighting.js?v=promenade';
+import {frameStreet, frameEye, frameOverview} from './premium-views.js?v=promenade';
+import {buildPromenade, promenadeGrade, terraceGrade} from './premium-promenade.js?v=promenade';
 const scene=new T.Scene();scene.background=new T.Color('#d5e0e8');scene.fog=new T.Fog('#c2d0dc',265,850);
 const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;document.querySelector('#scene').appendChild(renderer.domElement);
 const camera=new T.PerspectiveCamera(42,innerWidth/innerHeight,.1,1400);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.07;controls.maxPolarAngle=Math.PI/2;controls.minDistance=2.5;controls.maxDistance=900;controls.target.set(0,12,-1);
@@ -92,6 +93,28 @@ const sand=masonry('SandBrick','#a88b68',['#b69564','#c5a374','#bea071','#cba773
 const pale=masonry('PaleCrownBrick','#a99b8a',['#c8bba7','#d2c5b3','#c3b29d','#d6c8b5','#d0bfaa','#c4b6a5']);
 const darkBase=masonry('GraphiteBrick','#4c4e50',['#44494d','#515359','#3b4046','#4b5056','#444951','#53565a'],.83);
 const granite=material('granite','#e1e1dd');granite.map=texture('stone','#727779');
+const planterStone=material('HonedPromenadeStone','#d0c9bb',.91);
+const stepTactile=material('TactilePavers','#b3a998',.92);
+const tactileCanvas=document.createElement('canvas');
+tactileCanvas.width=tactileCanvas.height=64;
+const tactilePattern=tactileCanvas.getContext('2d');
+tactilePattern.fillStyle='#d4ccc0';
+tactilePattern.fillRect(0,0,64,64);
+for(let y=8;y<64;y+=16)for(let x=8;x<64;x+=16){
+    tactilePattern.fillStyle='#aaa193';
+    tactilePattern.beginPath();
+    tactilePattern.arc(x+1,y+1,3.1,0,Math.PI*2);
+    tactilePattern.fill();
+    tactilePattern.fillStyle='#e8dfcf';
+    tactilePattern.beginPath();
+    tactilePattern.arc(x,y,2.3,0,Math.PI*2);
+    tactilePattern.fill();
+}
+stepTactile.map=new T.CanvasTexture(tactileCanvas);
+stepTactile.map.wrapS=stepTactile.map.wrapT=T.RepeatWrapping;
+stepTactile.map.colorSpace=T.SRGBColorSpace;
+const promenadeFoliage=['#4f6934','#6f873a','#819844','#a0ac52'].map((color,i)=>material('PromenadeLeaf'+i,color,.8));
+const promenadeBlooms=['#ece8d2','#f7f3e3','#d8dbad'].map((color,i)=>material('PromenadeBloom'+i,color,.91));
 const interior=material('RecessBacking','#282728',.94);
 const graphite=material('graphite','#30383c',.58,.35);const frame=material('frame','#1b2429',.42,.55);const glass=new T.MeshPhysicalMaterial({color:'#647e8b',roughness:.18,metalness:.12,clearcoat:.65,clearcoatRoughness:.12});glass.envMapIntensity=.55;const warmGlass=material('litWindows','#a18d62',.36,.2);warmGlass.emissive=new T.Color('#ffd69a');warmGlass.emissiveIntensity=.02;const curtain=material('curtain','#b6b1a2');const timber=material('timber','#97704b',.72);const pavement=material('paving','#d2cbbf');pavement.map=texture('paving');const road=material('road','#62676b');road.map=texture('asphalt','#6a6d6e');const white=material('white','#e6e1d5');const grass=material('grass','#667446');const earth=material('earth','#4b4734');const leafM=[material('leaf0','#486438'),material('leaf1','#617c3e'),material('leaf2','#79914a'),material('leaf3','#8c9b58')];const flower=material('flower','#e4e4bd');const blue=material('play','#728994');const light=material('light','#fff6d7',.3);light.emissive=new T.Color('#ffe1a0');light.emissiveIntensity=.4;const bark=material('bark','#62503c');
 function worldTexture(mat,scale,vertical=false,bump=0,heightMap=null){
@@ -130,8 +153,11 @@ function worldTexture(mat,scale,vertical=false,bump=0,heightMap=null){
 }
 for(const m of [brick,sand,pale,darkBase]) worldTexture(m,.48,true,.011,masonryHeight);
 worldTexture(granite,.5,true,.035);
-worldTexture(pavement,.40,false,.011);
-worldTexture(road,.24,false,.007);
+worldTexture(pavement,.40,false,.005);
+worldTexture(road,.24,false,.003);
+worldTexture(stepTactile,6.25,false,.0014);
+road.roughness=.97;
+pavement.roughness=.91;
 const paneTints=['#52636b','#637176','#536168','#77786d','#617379','#525e66','#606d70','#65747b'];
 const windowMats=paneTints.map((color,i)=>new T.MeshPhysicalMaterial({
     color,roughness:.19+(i%4)*.039,metalness:.28,
@@ -154,30 +180,48 @@ const pools=new Map(),boxGeo=new T.BoxGeometry(1,1,1),cylGeo=new T.CylinderGeome
 const leafGeo=new T.BufferGeometry();
 leafGeo.setAttribute('position',new T.Float32BufferAttribute([0,0,-1,-.42,.08,-.40,.42,.08,-.4,-.48,.13,.25,.48,.13,.25,0,0,1,0,.18,0],3));
 leafGeo.setIndex([0,1,6,0,6,2,1,3,6,2,6,4,3,5,6,4,6,5]);leafGeo.computeVertexNormals();
-for(const m of leafM){m.side=T.DoubleSide;m.roughness=.78;}
+for(const m of [...leafM,...promenadeFoliage])m.side=T.DoubleSide;
 const grassGeo=new T.BufferGeometry();grassGeo.setAttribute('position',new T.Float32BufferAttribute([-.025,0,0,.025,0,0,.018,.45,.06,-.018,.45,.06,0,1,.22],3));grassGeo.setIndex([0,1,2,0,2,3,3,2,4]);grassGeo.computeVertexNormals();
 function leafSpray(mat,x,y,z,rx,ry,rz,n=75){for(let i=0;i<n;i++){const a=rnd()*Math.PI*2,v=rnd()*2-1,rr=Math.sqrt(1-v*v);instance(leafGeo,mat,x+Math.cos(a)*rr*rx,y+v*ry,z+Math.sin(a)*rr*rz,.16,.16,.19,rnd()*3.14,rnd()*6.28,rnd()*2);}}
 function grasses(x,z,r=.45,h=.6,y=.2){for(let i=0;i<45;i++){let a=rnd()*6.28,rr=Math.sqrt(rnd())*r;instance(grassGeo,leafM[i%4],x+Math.cos(a)*rr,y,z+Math.sin(a)*rr,1,h*(.5+rnd()*.8),1,0,a,0);}}
 function instance(geo,mat,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0){const key=geo.uuid+mat.uuid;let p=pools.get(key);if(!p){p={geo,mat,items:[]};pools.set(key,p)}quat.setFromEuler(new T.Euler(rx,ry,rz));matrix.compose(new T.Vector3(x,y,z),quat,new T.Vector3(sx,sy,sz));p.items.push(matrix.clone());objectCount++}
 function box(mat,x,y,z,w,h,d,ry=0){instance(boxGeo,mat,x,y,z,w,h,d,0,ry)}function cyl(mat,x,y,z,r,h){instance(cylGeo,mat,x,y,z,r,h,r)}function ball(mat,x,y,z,rx,ry=rx,rz=rx){
- if(leafM.includes(mat)&&rx>.20){leafSpray(mat,x,y,z,rx,ry,rz,90);return;}
- if(mat===flower&&rx>.06){for(let i=0;i<12;i++){let a=i*2.4;instance(sphereGeo,mat,x+Math.cos(a)*rx*.7,y+(rnd()-.5)*ry,z+Math.sin(a)*rz*.7,.035,.025,.035);}return;}
+ if((leafM.includes(mat)||promenadeFoliage.includes(mat))&&rx>.20){leafSpray(mat,x,y,z,rx,ry,rz,90);return;}
+ if((mat===flower||promenadeBlooms.includes(mat))&&rx>.06){for(let i=0;i<12;i++){let a=i*2.4;instance(sphereGeo,mat,x+Math.cos(a)*rx*.7,y+(rnd()-.5)*ry,z+Math.sin(a)*rz*.7,.035,.025,.035);}return;}
  instance(sphereGeo,mat,x,y,z,rx,ry,rz)}
 function rod(mat,a,b,r){const av=new T.Vector3(...a),bv=new T.Vector3(...b),dir=bv.clone().sub(av);const q=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),dir.clone().normalize());matrix.compose(av.add(bv).multiplyScalar(.5),q,new T.Vector3(r,dir.length(),r));let key=cylGeo.uuid+mat.uuid;let p=pools.get(key);if(!p){p={geo:cylGeo,mat,items:[]};pools.set(key,p)}p.items.push(matrix.clone())}
-function polygon(mat,points,y,depth=.2){const shape=new T.Shape();points.forEach(([x,z],i)=>i?shape.lineTo(x,-z):shape.moveTo(x,-z));shape.closePath();const geo=new T.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:32});geo.rotateX(-Math.PI/2);geo.translate(0,y,0);const m=new T.Mesh(geo,mat);m.castShadow=m.receiveShadow=true;scene.add(m);return m}
+function solid(mat,shape,y,depth,bevel=0){
+    const geo=new T.ExtrudeGeometry(shape,{depth,bevelEnabled:bevel>0,bevelSize:bevel,bevelThickness:bevel,bevelSegments:2});
+    geo.rotateX(-Math.PI/2);
+    geo.translate(0,y,0);
+    const mesh=new T.Mesh(geo,mat);
+    mesh.castShadow=mesh.receiveShadow=true;
+    scene.add(mesh);
+    return mesh;
+}
+function polygon(mat,points,y,depth=.2){
+    const shape=new T.Shape();
+    points.forEach(([x,z],i)=>i?shape.lineTo(x,-z):shape.moveTo(x,-z));
+    shape.closePath();
+    return solid(mat,shape,y,depth);
+}
 function ellipse(mat,x,z,rx,rz,y=.12,depth=.1){const pts=[];for(let i=0;i<64;i++){const a=i*Math.PI/32;pts.push([x+rx*Math.cos(a),z+rz*Math.sin(a)])}return polygon(mat,pts,y,depth)}
 // Site plinth and two connected residential wings, reconstructed from reference images.
-box(white,0,-.8,0,139,1.6,135);box(grass,0,-.04,0,135,.12,131);box(pavement,0,.02,-31,120,.16,12);box(road,0,.02,-49,132,.13,15);box(road,0,.02,-62,132,.13,10);box(pavement,-62,.03,-3,9,.15,108);box(road,62,.02,5,8,.12,113);
-box(pavement,3,.04,16,118,.12,84);
+box(white,0,-.8,0,139,1.6,135);
+box(grass,0,-.04,0,135,.12,131);
+box(pavement,0,promenadeGrade-.08,-33.485,120,.16,16.03);
+box(pavement,-62,.025,4.75,9,.16,92.5);
+box(pavement,1,.04,16.275,114,.12,83.45);
 const terrain=material('SurroundingTerrain','#8e9582',.98);
 const ground=new T.Mesh(new T.PlaneGeometry(1200,1200),terrain);
 ground.rotation.x=-Math.PI/2;
-ground.position.y=-.026;
+ground.position.y=-.22;
 ground.receiveShadow=true;
 scene.add(ground);
-// The asphalt extends from the modelled street to meet the street-level view.
-box(road,0,-.007,-68.45,246,.018,6.25);
-for(const x of [-99,99]) box(road,x,-.006,-49,67,.023,15);
+// A continuous solid road through the bend, with a separate parking strip across the median.
+polygon(road,[[-132.5,-56.5],[132.5,-56.5],[132.5,-41.5],[66,-41.5],[66,61.5],
+    [58,61.5],[58,-41.5],[-132.5,-41.5]],-.25,.335);
+box(road,0,-.0825,-64.2875,132,.335,14.575);
 for(let x=-61;x<61;x+=1.25){
     box(granite,x,.139,-41.625,1.229,.144,.183);
 }
@@ -185,45 +229,41 @@ for(let x=-54;x<56;x+=10.9){
     box(graphite,x,.090,-41.87,.48,.016,.29);
     for(let n=0;n<8;n++)box(granite,x-.192+n*.055,.104,-41.87,.018,.009,.248);
 }
-buildFacade(box,{brick,sand,pale,granite:darkBase,graphite,frame,glass,shopGlass,windowMats,courtGlass,interior,drapery});
-// Entrances, podiums and ramps on the street side.
-for(const x of streetEntrances){box(granite,x,.56,-27.73,5.66,1,6.25);for(let i=0;i<5;i++)box(granite,x,.10+i*.10,-32.6+i*.46,5.66,.20+i*.20,.48);
+buildFacade(box,{brick,sand,pale,granite:darkBase,graphite,frame,glass,shopGlass,windowMats,courtGlass,interior,drapery},terraceGrade+.012);
+// The raised street promenade reaches the finished threshold of each entrance.
+for(const x of streetEntrances){
  box(graphite,x,3.79,-25.85,4.48,.18,1.62);
- // Finished stone nosings, portal returns and the metal drip edge.
- for(let i=0;i<5;i++)box(granite,x,.20+i*.20,-32.83+i*.46,5.67,.035,.039);
- for(const offset of [-2.78,2.78]){
-     box(granite,x+offset,.296,-28.01,.097,.411,5.50);
-     box(graphite,x+offset,3.712,-25.75,.045,.115,.988);
- }
  box(graphite,x,3.795,-26.644,4.46,.079,.036);
- for(let lx of [-1.7,0,1.7])ball(light,x+lx,3.72,-26.1,.10,.045,.10);
- // Lateral accessible approach.
- const ramp=new T.Mesh(boxGeo,granite);
- ramp.position.set(x+3.92,.517,-29.24);
- ramp.scale.set(2.12,.16,6.89);
- ramp.rotation.x=-.134;
- ramp.receiveShadow=true;
- scene.add(ramp);
- box(granite,x+3.92,.58,-25.62,2.12,.96,.86);
- for(const offset of [2.88,4.96]){
-     const gx=x+offset;
-     rod(graphite,[gx,1.10,-32.62],[gx,2.01,-25.82],.027);
-     for(let post=0;post<=4;post++){
-         rod(graphite,[gx,.16+post*.223,-32.62+post*1.70],[gx,1.10+post*.227,-32.62+post*1.70],.021);
-     }
- }
+ box(light,x,3.690,-26.3,3.9,.02,.035);
 }
-// Curved white planters with integrated timber seating along the full external alley.
-function planter(x,z,rx=4,rz=1.55){const pts=[];for(let i=0;i<96;i++){const a=i*Math.PI/48;const scallop=1+.11*Math.sin(3*a);pts.push([x+rx*Math.cos(a)*scallop,z+rz*Math.sin(a)])}polygon(white,pts,.12,.62);ellipse(earth,x,z,rx*.91,rz*.83,.76,.03);
- for(let i=0;i<23;i++){let a=Math.PI*.03+i/22*Math.PI*.85;let px=x+rx*.96*Math.cos(a),pz=z+rz*Math.sin(a);box(timber,px,.83,pz,.14,.12,.66,-a)}
- tree(x-.8,z,4.5,.85);for(let i=0;i<45;i++){let a=rnd()*Math.PI*2,r=Math.sqrt(rnd());const xx=x+Math.cos(a)*rx*.85*r,zz=z+Math.sin(a)*rz*.7*r;ball(leafM[i%4],xx,.97+rnd()*.18,zz,.32,.40,.30);if(i%3===0)for(let k=0;k<3;k++)ball(flower,xx+(rnd()-.5)*.4,1.22+rnd()*.12,zz+(rnd()-.5)*.3,.08)}}
-function tree(x,z,h=6,s=1){cyl(bark,x,h*.35,z,.12*s,h*.70);for(let k=0;k<5;k++){const a=k*2.4;rod(bark,[x,h*.30,z],[x+Math.cos(a)*s,h*.75,z+Math.sin(a)*s],.065*s)}
- for(let i=0;i<36;i++){const a=rnd()*Math.PI*2,r=Math.sqrt(rnd())*1.65*s,cx=x+Math.cos(a)*r,cy=h*.70+rnd()*h*.25,cz=z+Math.sin(a)*r;
- if(i%3===0)rod(bark,[x,h*.57,z],[cx,cy,cz],.022*s);
- for(let j=0;j<68;j++)instance(leafGeo,leafM[(i+j)%4],cx+(rnd()-.5)*1.50*s,cy+(rnd()-.5)*1.30*s,cz+(rnd()-.5)*1.5*s,.11*s,.11*s,.16*s,rnd()*3.14,rnd()*6.28,rnd()*3.14);
+function ramp(mat,x,width,start,end,bottom,top){
+    const vertices=[];
+    for(const [z,y] of [[start,bottom],[end,top]])for(const side of [-1,1])vertices.push(x+side*width/2,y,z);
+    for(const z of [start,end])for(const side of [-1,1])vertices.push(x+side*width/2,promenadeGrade-.03,z);
+    let geo=new T.BufferGeometry();
+    geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+    geo.setIndex([0,2,1,1,2,3, 0,4,2,2,4,6, 1,3,5,3,7,5, 0,1,4,1,5,4, 2,6,3,3,6,7]);
+    geo=geo.toNonIndexed();
+    geo.computeVertexNormals();
+    const mesh=new T.Mesh(geo,mat);
+    mesh.castShadow=mesh.receiveShadow=true;
+    scene.add(mesh);
+}
+function tree(x,z,h=6,s=1,y=0,canopy=leafM){cyl(bark,x,y+h*.35,z,.12*s,h*.70);for(let k=0;k<5;k++){const a=k*2.4;rod(bark,[x,y+h*.30,z],[x+Math.cos(a)*s,y+h*.75,z+Math.sin(a)*s],.065*s)}
+ for(let i=0;i<36;i++){const a=rnd()*Math.PI*2,r=Math.sqrt(rnd())*1.65*s,cx=x+Math.cos(a)*r,cy=y+h*.70+rnd()*h*.25,cz=z+Math.sin(a)*r;
+ if(i%3===0)rod(bark,[x,y+h*.57,z],[cx,cy,cz],.022*s);
+ for(let j=0;j<68;j++)instance(leafGeo,canopy[(i+j)%canopy.length],cx+(rnd()-.5)*1.50*s,cy+(rnd()-.5)*1.30*s,cz+(rnd()-.5)*1.5*s,.11*s,.11*s,.16*s,rnd()*3.14,rnd()*6.28,rnd()*3.14);
  } }
-for(const x of streetEntrances)planter(x,-35.2,4,1.6);
-for(let x=-59;x<=59;x+=.75){grasses(x,-40.6,.36,.65,.1);if(Math.round(x)%3===0)ball(flower,x,.80,-40.6,.13);}
+const siteSeed=seed;
+buildPromenade(streetEntrances,{box,solid,ramp,tree,grasses,ball,cyl,rnd},{
+    pavement,stone:planterStone,tactile:stepTactile,earth,timber,graphite,light,blooms:promenadeBlooms,foliage:promenadeFoliage,
+});
+for(let x=-58;x<=58;x+=1.62){
+    grasses(x,-40.75,.36,.50,promenadeGrade);
+    ball(promenadeFoliage[0],x,.33,-40.74,.38,.27,.31);
+    for(let i=0;i<4;i++)ball(promenadeBlooms[i%3],x+(i-1.5)*.112,.58+rnd()*.10,-40.74+(rnd()-.5)*.33,.072);
+}
+seed=siteSeed;
 // Bollard lighting and alley trees away from entrance axes.
 for(let x=-57;x<60;x+=9){cyl(graphite,x,.65,-38.4,.065,1.25);cyl(light,x,1.24,-38.4,.073,.16)}
 for(let x=-58;x<60;x+=15)tree(x,-66,6,1.05);
@@ -262,11 +302,13 @@ function car(x,z,a=0,col=0){
 }
 for(let i of [0,3,6,9,14,18,23,28,34,39])car(-59+i*3.05,-61.8,0,i%3);car(4,-47.2,Math.PI/2,1);car(41,-51.4,-Math.PI/2,0);
 // Enclosed landscaped courtyard with curving paths, timber decks and blue play islands.
-ellipse(grass,3,17,37,20,.14,.05);
-function curvePath(points,width,mat,y=.2,border=true){
+ellipse(grass,3,17,37,20,.115,.05);
+const courtPathClearances=[];
+function curvePath(points,width,mat,y=.235,border=true){
     const curve=new T.CatmullRomCurve3(points.map(([x,z])=>new T.Vector3(x,y,z)));
     const samples=Math.max(22,Math.ceil(curve.getLength()*2.4));
     const pts=curve.getSpacedPoints(samples);
+    courtPathClearances.push({points:pts,radiusSquared:(width/2+.44)**2});
     const vertices=[],indices=[],sides=[[],[]];
     for(let i=0;i<pts.length;i++){
         const t=curve.getTangentAt(i/samples);
@@ -279,6 +321,16 @@ function curvePath(points,width,mat,y=.2,border=true){
         if(i<samples){
             const k=i*2;
             indices.push(k,k+1,k+2,k+1,k+3,k+2);
+        }
+    }
+    // The two sides of the ribbon reach the underlying court paving as the path crosses the lawn.
+    for(const [side,row] of sides.entries()){
+        const offset=vertices.length/3;
+        for(const [x,z] of row)vertices.push(x,y,z,x,.094,z);
+        for(let i=1;i<row.length;i++){
+            const k=offset+(i-1)*2;
+            if(side===0)indices.push(k,k+2,k+1,k+1,k+2,k+3);
+            else indices.push(k,k+1,k+2,k+1,k+3,k+2);
         }
     }
     const geo=new T.BufferGeometry();
@@ -303,7 +355,7 @@ const courtEnds=[[39,16],[10,8],[-24,2],[-30,23]];
 for(const [i,{center:[x,z],normal:[nx,nz]}] of courtEntrances.entries()){
     const start=[x+nx*.53,z+nz*.53];
     const end=courtEnds[i];
-    curvePath([start,[x+nx*2.35,z+nz*2.35],end],1.82,pavement,.202);
+    curvePath([start,[x+nx*2.35,z+nz*2.35],end],1.82,pavement,.235,false);
     box(granite,x+nx*.83,.129,z+nz*.83,nx?.69:2.05,.147,nz?.69:2.05);
 }
 function deck(x,z,rx,rz){ellipse(timber,x,z,rx,rz,.22,.12);for(let xx=x-rx;xx<x+rx;xx+=.22){const dd=rz*Math.sqrt(Math.max(0,1-((xx-x)/rx)**2));box(timber,xx,.37,z,.18,.06,dd*2)}}
@@ -320,7 +372,18 @@ function bench(x,z,a=0){for(let i=0;i<5;i++)box(timber,x, .71,z+(i-2)*.10,2.4,.0
 for(let [x,z] of [[-31,3],[-27,29],[-4,23],[13,16],[35,30],[27,3]]){deck(x,z,2.1,1.0);bench(x,z);cyl(graphite,x+2.5,.55,z,.16,1);cyl(light,x+2.5,1.07,z,.17,.1)}
 // Curved timber screens, planting beds, flower grasses.
 for(const [x,z,r,start,end] of [[-20,14,11,.2,1.7],[25,21,8.4,-1.4,.6],[1,33,9.2,1.0,2.8]]){for(let a=start;a<end;a+=.045){const h=1.1+.3*Math.sin(a*2);box(timber,x+r*Math.cos(a),.5+h/2,z+r*.72*Math.sin(a),.08,h,.10,-a)}}
-for(let i=0;i<470;i++){const x=-35+rnd()*75,z=-3+rnd()*44;const nearPlay=[[-20,14,12],[25,21,9],[1,33,10]].some(([cx,cz,r])=>Math.hypot(x-cx,z-cz)<r);if(nearPlay)continue;const h=.22+rnd()*.40;grasses(x,z,.32,h,.20);if(i%3===0)for(let k=0;k<3;k++){rod(timber,[x,.2,z],[x+(rnd()-.5)*.3,.5+h,z+(rnd()-.5)*.3],.012);ball(flower,x,.55+h,z,.06,.13,.06)}}
+for(let i=0;i<470;i++){
+    const x=-35+rnd()*75,z=-3+rnd()*44;
+    const nearPlay=[[-20,14,12],[25,21,9],[1,33,10]].some(([cx,cz,r])=>Math.hypot(x-cx,z-cz)<r);
+    const nearPath=courtPathClearances.some(path=>path.points.some(p=>(x-p.x)**2+(z-p.z)**2<path.radiusSquared));
+    if(nearPlay||nearPath)continue;
+    const h=.22+rnd()*.40;
+    grasses(x,z,.32,h,.164);
+    if(i%3===0)for(let k=0;k<3;k++){
+        rod(timber,[x,.164,z],[x+(rnd()-.5)*.3,.41+h,z+(rnd()-.5)*.3],.012);
+        ball(flower,x,.45+h,z,.06,.13,.06);
+    }
+}
 for(const [x,z] of [[-33,-3],[-18,-3],[-4,-3],[12,-3],[31,-2],[-35,12],[-35,28],[-25,39],[-9,39],[17,39],[39,36],[42,22],[39,3],[10,20]])tree(x,z,5.5+rnd()*1.8,.95+rnd()*.3);
 // Courtyard parking strip and fence to the landscaped island.
 box(road,3,.16,47,106,.12,9);for(let x=-37;x<53;x+=3.1)box(white,x,.23,47,.045,.015,5);for(let i of [1,6,11,17,24])car(-36+i*3.1,47,0,i%3);
@@ -328,16 +391,6 @@ for(let x=-37;x<49;x+=.38)box(timber,x,1.0,42,.065,1.5,.08);for(let x=-37;x<48;x
 // Garage portal and a low entry feature on the court edge.
 box(granite,43,1.7,40,6.5,3.2,3);box(graphite,43,1.6,41.56,5.3,2.6,.07);for(let y=.45;y<2.9;y+=.34)box(granite,43,y,41.62,5.1,.025,.05);
 
-// Ferns, flowering shrubs, rounded edging and construction details.
-for(const xx of streetEntrances){
- for(let j=0;j<7;j++)grasses(xx-3+j,-35.0,.30,.55,.79);
- for(let a=0;a<Math.PI*2;a+=.10){const scallop=1+.11*Math.sin(3*a);const x=xx+4*Math.cos(a)*scallop,z=-35.2+1.55*Math.sin(a);ball(white,x,.72,z,.09,.055,.09);}
- for(let j=0;j<5;j++){const x=xx-2+j;for(let a=0;a<6.28;a+=.6)ball(flower,x+Math.cos(a)*.11,1.10+Math.sin(a)*.04,-35.5+Math.sin(a)*.12,.065);}
- for(let y=0;y<5;y++){box(graphite,xx,.2+y*.20,-32.83+y*.46,5.66,.012,.015);}
- // Recessed linear entrance canopy light and carefully sized handrails.
- box(light,xx,3.690,-26.3,3.9,.02,.035);
- for(let side of [-1,1]){rod(graphite,[xx+side*2.70,.85,-33.1],[xx+side*2.70,1.7,-30.8],.028);for(let k=0;k<3;k++)rod(graphite,[xx+side*2.70,.15+k*.4,-33.1+k],[xx+side*2.70,.85+k*.4,-33.1+k],.022);}
-}
 for(let x=-34;x<43;x+=1.7)if(x%5>1)grasses(x,39.8,.5,.75);
 // Linear boardwalk connects lounge areas, with individual timber boards.
 for(let x=-11;x<20;x+=.18)box(timber,x,.26,21,.165,.075,2.2);
@@ -379,7 +432,6 @@ function selectView(view){
     const damping=controls.enableDamping;
     controls.enableDamping=false;
     controls.update();
-    camera.near=.1;
     camera.clearViewOffset();
     if(view==='overview')frameOverview(camera,target);
     else if(view==='street')frameStreet(camera,target,innerWidth,innerHeight);
@@ -387,6 +439,7 @@ function selectView(view){
     controls.target.copy(target);
     controls.update();
     controls.enableDamping=damping;
+    setDepthRange();
     camera.updateMatrixWorld(true);
     for(const button of buttons){
         button.setAttribute('aria-pressed',String(button.dataset.view===view));
@@ -394,6 +447,14 @@ function selectView(view){
     dirty=true;
 }
 function overview(){selectView('overview');}
+
+function setDepthRange(){
+    // The old eye-level near plane lost precision when the camera orbited well above the site.
+    const near=walk?.15:T.MathUtils.clamp(camera.position.distanceTo(controls.target)*.012,.24,8);
+    if(Math.abs(camera.near-near)<.0001)return;
+    camera.near=near;
+    camera.updateProjectionMatrix();
+}
 
 for(const button of buttons){
     button.addEventListener('click',()=>selectView(button.dataset.view));
@@ -406,7 +467,7 @@ function enterAt(x,z){
     camera.clearViewOffset();
     camera.position.set(x,1.75,z);
     camera.fov=65;
-    camera.near=.05;
+    setDepthRange();
     camera.updateProjectionMatrix();
     yaw=z<-25?Math.PI:.25;
     pitch=.12;
@@ -422,6 +483,7 @@ function stepIntoScene(e){
     const b=canvas.getBoundingClientRect();
     camera.updateMatrixWorld(true);
     raycaster.setFromCamera(new T.Vector2((e.clientX-b.left)/b.width*2-1,-(e.clientY-b.top)/b.height*2+1),camera);
+    raycaster.near=camera.near;
     const hit=raycaster.intersectObjects(scene.children,true)[0];
     if(hit&&hit.point.y<1.4&&Math.abs(hit.point.x)<66&&hit.point.z>-67&&hit.point.z<64){
         enterAt(hit.point.x,hit.point.z);
@@ -484,6 +546,11 @@ function animate(time){
     last=time;
     if(!walk)controls.update();
     if(dirty){
+        setDepthRange();
+        const uniforms=ao.ssaoMaterial.uniforms;
+        uniforms.cameraNear.value=camera.near;
+        uniforms.cameraProjectionMatrix.value.copy(camera.projectionMatrix);
+        uniforms.cameraInverseProjectionMatrix.value.copy(camera.projectionMatrixInverse);
         composer.render();
         dirty=false;
     }

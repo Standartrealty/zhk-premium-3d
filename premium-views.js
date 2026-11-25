@@ -57,10 +57,10 @@ export function frameStreet(camera, target, width, height) {
 export function frameEye(camera, target, view, entrance, width, height) {
     const narrow = camera.aspect < .74;
     if (view==='entry') {
-        camera.position.set(entrance+6.15,1.72,-37.6);
-        target.set(entrance+.03,1.72,-25.3);
+        camera.position.set(entrance+10.8,1.72,-39.05);
+        target.set(entrance-1.85,1.72,-30.45);
         camera.fov=narrow?66:49;
-        setShift(camera,width,height,0,-height*.223);
+        setShift(camera,width,height,0,-height*.095);
     } else {
         camera.position.set(-3,1.73,18);
         target.set(-26,1.73,-5.2);

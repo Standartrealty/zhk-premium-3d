@@ -31,7 +31,7 @@ export const courtEntrances = edges.filter(edge=>edge.entries).flatMap(edge=>
     })
 );
 
-export function buildFacade(box, m) {
+export function buildFacade(box, m, lobbyThreshold = 1.016) {
     const {brick, sand, pale, granite, graphite, frame, glass, shopGlass, windowMats, courtGlass, interior, drapery} = m;
     const roofThickness = .21;
     // Roofs and recessed opaque cores keep the skyline and true reveals continuous.
@@ -165,7 +165,7 @@ export function buildFacade(box, m) {
                     const street = edge.use === 'street' || edge.use === 'streetEnd';
                     const baseFace = .49;
                     if (street) {
-                        const sill = lobby ? 1.016 : .43;
+                        const sill = lobby ? lobbyThreshold : .43;
                         const head = 3.62;
                         const opening = {u, width: bayWidth * (lobby ? .82 : .86)};
                         facingAround(granite, start, end, sill, head, bottom, top, [opening], baseFace);

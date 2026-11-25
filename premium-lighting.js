@@ -2,7 +2,7 @@ import * as T from 'three';
 import {RGBELoader} from 'three/addons/loaders/RGBELoader.js';
 
 const skyURL = new URL('./premium-sky.hdr', import.meta.url);
-const reflectionsURL = new URL('./premium-reflections.webp', import.meta.url);
+const reflectionsURL = new URL('./premium-reflections.webp?v=promenade', import.meta.url);
 const skyRotation = Math.PI;
 
 export async function loadSky(scene) {
